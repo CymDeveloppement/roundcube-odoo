@@ -82,7 +82,10 @@ modes strict / préfixe de Roundcube en `=ilike`.
 - Cache partagé `rcube_cache` (`odoo_cache`, `odoo_cache_ttl` = 5 min) de chaque appel.
 - Timeouts 2 s / 4 s ; au premier échec, les appels suivants de la requête sont
   sautés, l'erreur est loguée, le carnet est vide.
-- `odoo_min_length` = 3 ; conseillé : `autocomplete_threads = 1`.
+- Pas de longueur minimale propre au plugin : le JS de Roundcube n'envoie plus les
+  recherches qui prolongent une recherche sans résultat (« ma » vide → « marin » jamais
+  envoyé). Seuil global possible avec `autocomplete_min_length`, que le JS respecte.
+- Conseillé : `autocomplete_threads = 1`.
 - Client HTTP de Roundcube (`get_http_client`) : respecte `http_client` (proxy, TLS).
 
 ## 7. Suite possible

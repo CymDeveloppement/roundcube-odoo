@@ -98,8 +98,7 @@ class roundcube_odoo extends rcube_plugin
                 $client,
                 $config->get('odoo_addressbook_name'),
                 $this->types(),
-                (array) $config->get('odoo_domain'),
-                (int) $config->get('odoo_min_length')
+                (array) $config->get('odoo_domain')
             );
         }
 

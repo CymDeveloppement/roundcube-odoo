@@ -58,7 +58,6 @@ $config['odoo_types'] = ['customer', 'supplier', 'employee'];
 | `odoo_types` | customer, supplier, employee | Listed types, see below |
 | `odoo_domain` | `[]` | Extra Odoo domain applied to all the contacts |
 | `odoo_autocomplete` | `true` | Suggest the contacts in the autocompletion |
-| `odoo_min_length` | `3` | Minimum length of a search sent to Odoo |
 | `odoo_cache` / `odoo_cache_ttl` | `'db'` / `'5m'` | Cache shared by all users |
 | `odoo_connect_timeout` / `odoo_timeout` | `2` / `4` | Seconds |
 
@@ -93,10 +92,12 @@ its contacts as recipients.
 Each search is an HTTP request to Odoo. The results are cached for all users,
 and the timeouts are short so that a slow Odoo does not block the typing; when
 Odoo fails, the address book is empty and the error is logged. To query the
-other address books without waiting for Odoo:
+other address books without waiting for Odoo, and to search from 3 characters
+(this applies to all the address books):
 
 ```php
 $config['autocomplete_threads'] = 1;
+$config['autocomplete_min_length'] = 3;
 ```
 
 ## License

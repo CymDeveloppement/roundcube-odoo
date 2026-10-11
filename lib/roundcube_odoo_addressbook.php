@@ -52,9 +52,6 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     /** @var array Domain set by the configuration */
     private $domain;
 
-    /** @var int */
-    private $min_length;
-
     /** @var ?array Domain of the current search */
     private $filter;
 
@@ -69,15 +66,13 @@ class roundcube_odoo_addressbook extends rcube_addressbook
      * @param string $name       Name of the address book
      * @param array  $types      Contact types, see $types
      * @param array  $domain     Domain set by the configuration
-     * @param int    $min_length Minimum length of a search
      */
-    public function __construct($client, $name, array $types, array $domain, $min_length)
+    public function __construct($client, $name, array $types, array $domain)
     {
         $this->client = $client;
         $this->name = $name;
         $this->types = $types;
         $this->domain = $domain;
-        $this->min_length = $min_length;
         $this->groups = !empty($types);
         $this->ready = true;
     }
@@ -162,8 +157,9 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             }
             $filter = $conditions ? self::and_domains($conditions) : self::NONE;
         } else {
-            $value = trim((string) $value);
-            $filter = mb_strlen($value) >= $this->min_length ? $this->condition($fields, $value, $mode) : self::NONE;
+            // No minimum length: the autocompletion stops searching once a
+            // search finds nothing, a longer one would never be sent
+            $filter = $this->condition($fields, trim((string) $value), $mode);
         }
 
         foreach ((array) $required as $field) {

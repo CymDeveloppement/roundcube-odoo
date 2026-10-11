@@ -43,9 +43,6 @@ $config['odoo_domain'] = [];
 // Suggest the contacts in the recipient autocompletion
 $config['odoo_autocomplete'] = true;
 
-// Minimum number of characters of a search sent to Odoo
-$config['odoo_min_length'] = 3;
-
 // --------------- Performance ------------------
 // Cache of the Odoo results, shared by all users: 'db', 'apc', 'memcache',
 // 'redis' or null to disable it
