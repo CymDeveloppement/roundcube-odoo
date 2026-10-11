@@ -55,6 +55,13 @@ class roundcube_odoo extends rcube_plugin
                 $sources[] = self::SOURCE;
                 $this->rc->config->set('autocomplete_addressbooks', $sources);
             }
+
+            $this->add_hook('contacts_autocomplete_after', array($this, 'contacts_autocomplete_after'));
+
+            $stylesheet = $this->local_skin_path() . '/roundcube_odoo.css';
+            if ($this->rc->task == 'mail' && is_file($this->home . '/' . $stylesheet)) {
+                $this->include_stylesheet($stylesheet);
+            }
         }
     }
 
@@ -66,6 +73,36 @@ class roundcube_odoo extends rcube_plugin
             'readonly' => true,
             'groups' => $this->addressbook()->groups,
         );
+
+        return $args;
+    }
+
+    /**
+     * Adds the details of the Odoo contacts (job position...) to the
+     * suggestions, on a line of their own in Elastic
+     */
+    function contacts_autocomplete_after($args)
+    {
+        $keys = (array) $this->rc->config->get('odoo_autocomplete_details');
+
+        foreach ($args['contacts'] as $i => $contact) {
+            if (($contact['source'] ?? null) !== self::SOURCE || !$this->abook
+                || !($record = $this->abook->known_record($contact['id']))
+            ) {
+                continue;
+            }
+
+            $details = array();
+            foreach ($keys as $key) {
+                if (!empty($record[$key]) && is_string($record[$key])) {
+                    $details[] = $record[$key];
+                }
+            }
+
+            if ($details) {
+                $args['contacts'][$i]['fields']['details'] = implode(' · ', $details);
+            }
+        }
 
         return $args;
     }
@@ -100,6 +137,10 @@ class roundcube_odoo extends rcube_plugin
                 $this->types(),
                 (array) $config->get('odoo_domain')
             );
+
+            if ($this->rc->action == 'autocomplete' && ($fields = (array) $config->get('odoo_autocomplete_search'))) {
+                $this->abook->set_autocomplete_fields($fields);
+            }
         }
 
         return $this->abook;

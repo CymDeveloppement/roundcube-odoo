@@ -18,7 +18,7 @@ class roundcube_odoo_addressbook extends rcube_addressbook
 
     /** Odoo fields searched for each Roundcube field */
     const SEARCH_FIELDS = array(
-        '*' => array('name', 'email', 'commercial_company_name'),
+        '*' => array('name', 'email', 'commercial_company_name', 'function'),
         'name' => array('name'),
         'firstname' => array('name'),
         'surname' => array('name'),
@@ -61,6 +61,15 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     /** @var bool True once a call failed: the next ones are skipped */
     private $offline = false;
 
+    /** @var ?array Odoo fields searched by the autocompletion */
+    private $autocomplete_fields;
+
+    /** @var array Records read during the request, by id */
+    private $records = array();
+
+    /** @var ?array Job positions of the employees, by work contact id */
+    private $employees;
+
     /**
      * @param roundcube_odoo_client $client
      * @param string $name       Name of the address book
@@ -75,6 +84,23 @@ class roundcube_odoo_addressbook extends rcube_addressbook
         $this->domain = $domain;
         $this->groups = !empty($types);
         $this->ready = true;
+    }
+
+    /**
+     * Searches the given Odoo fields instead of the Roundcube ones, for the
+     * autocompletion
+     */
+    public function set_autocomplete_fields(array $fields)
+    {
+        $this->autocomplete_fields = $fields;
+    }
+
+    /**
+     * Record already read during the request, null if unknown
+     */
+    public function known_record($id)
+    {
+        return $this->records[$id] ?? null;
     }
 
     #[\Override]
@@ -159,7 +185,9 @@ class roundcube_odoo_addressbook extends rcube_addressbook
         } else {
             // No minimum length: the autocompletion stops searching once a
             // search finds nothing, a longer one would never be sent
-            $filter = $this->condition($fields, trim((string) $value), $mode);
+            $filter = $this->autocomplete_fields
+                ? $this->odoo_condition($this->autocomplete_fields, trim((string) $value), $mode)
+                : $this->condition($fields, trim((string) $value), $mode);
         }
 
         foreach ((array) $required as $field) {
@@ -292,23 +320,42 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             return $type['domain'];
         }
 
-        // The employees are read from hr.employee.public, readable by all
-        // internal users, unlike res.partner.employee_ids
-        $rows = $this->query('hr.employee.public', 'search_read', array(
-            'domain' => array(array('work_contact_id', '!=', false)),
-            'fields' => array('work_contact_id'),
-        ), array());
-
-        $ids = array();
-        foreach ($rows as $row) {
-            $ids[] = $row['work_contact_id'][0];
-        }
+        $ids = array_keys($this->employees());
 
         return $ids ? array(array('id', 'in', $ids)) : self::NONE;
     }
 
     /**
-     * Domain matching $value in one of the Odoo fields of $fields
+     * Job positions of the employees, by work contact id. Empty without the
+     * 'employee' type, the Employees app may not be installed.
+     */
+    private function employees()
+    {
+        if ($this->employees === null) {
+            $this->employees = array();
+
+            if (!in_array(true, array_column($this->types, 'employee'))) {
+                return $this->employees;
+            }
+
+            // The employees are read from hr.employee.public, readable by all
+            // internal users, unlike res.partner.employee_ids. Their job
+            // position is not copied to their work contact.
+            $rows = $this->query('hr.employee.public', 'search_read', array(
+                'domain' => array(array('work_contact_id', '!=', false)),
+                'fields' => array('work_contact_id', 'job_title'),
+            ), array());
+
+            foreach ($rows as $row) {
+                $this->employees[$row['work_contact_id'][0]] = (string) $row['job_title'];
+            }
+        }
+
+        return $this->employees;
+    }
+
+    /**
+     * Domain matching $value in one of the Odoo fields of the Roundcube $fields
      */
     private function condition($fields, $value, $mode)
     {
@@ -317,10 +364,19 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             $names = array_merge($names, $this->odoo_fields($field));
         }
 
+        return $this->odoo_condition($names, $value, $mode);
+    }
+
+    /**
+     * Domain matching $value in one of the Odoo fields $names
+     */
+    private function odoo_condition(array $names, $value, $mode)
+    {
         if (!$names) {
             return self::NONE;
         }
 
+        $raw = $value;
         $mode &= ~self::SEARCH_GROUPS;
         if ($mode == self::SEARCH_STRICT || $mode == self::SEARCH_PREFIX) {
             $operator = '=ilike';
@@ -337,7 +393,29 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             $domains[] = array(array($name, $operator, $value));
         }
 
+        if (in_array('function', $names) && ($ids = $this->employees_by_job($raw, $mode))) {
+            $domains[] = array(array('id', 'in', $ids));
+        }
+
         return self::or_domains($domains);
+    }
+
+    /**
+     * Work contacts of the employees whose job position matches $value
+     */
+    private function employees_by_job($value, $mode)
+    {
+        $ids = array();
+        foreach ($this->employees() as $id => $job) {
+            $pos = $job === '' ? false : mb_stripos($job, $value);
+            if ($mode == self::SEARCH_STRICT ? mb_strtolower($job) === mb_strtolower($value)
+                : ($mode == self::SEARCH_PREFIX ? $pos === 0 : $pos !== false)
+            ) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
     }
 
     /**
@@ -406,6 +484,8 @@ class roundcube_odoo_addressbook extends rcube_addressbook
         }
         if ($row['function']) {
             $record['jobtitle'] = $row['function'];
+        } else if (!empty($this->employees()[$row['id']])) {
+            $record['jobtitle'] = $this->employees()[$row['id']];
         }
         if ($row['phone']) {
             $record['phone:work'] = array($row['phone']);
@@ -433,7 +513,7 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             }
         }
 
-        return $record;
+        return $this->records[$record['ID']] = $record;
     }
 
     /**

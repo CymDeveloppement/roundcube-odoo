@@ -3,7 +3,8 @@
 Read-only address book of the [Odoo](https://www.odoo.com) contacts for
 [Roundcube](https://roundcube.net) webmail:
 
-- the contacts are suggested in the **To / Cc / Bcc autocompletion**;
+- the contacts are suggested in the **To / Cc / Bcc autocompletion**, with
+  their job position, and can be found from it (e.g. "project manager");
 - an **Odoo** address book lists them in the Contacts screen, with a group for
   each contact type (customers, suppliers, employees...), and shows their
   details (email, phone, company, job position, address, notes).
@@ -58,6 +59,8 @@ $config['odoo_types'] = ['customer', 'supplier', 'employee'];
 | `odoo_types` | customer, supplier, employee | Listed types, see below |
 | `odoo_domain` | `[]` | Extra Odoo domain applied to all the contacts |
 | `odoo_autocomplete` | `true` | Suggest the contacts in the autocompletion |
+| `odoo_autocomplete_search` | name, email, function | Odoo fields searched by the autocompletion |
+| `odoo_autocomplete_details` | `['jobtitle']` | Details under the suggestions: `jobtitle`, `organization` |
 | `odoo_cache` / `odoo_cache_ttl` | `'db'` / `'5m'` | Cache shared by all users |
 | `odoo_connect_timeout` / `odoo_timeout` | `2` / `4` | Seconds |
 
@@ -86,6 +89,17 @@ $config['odoo_types'] = [
 
 The groups are not proposed in the autocompletion: selecting one would add all
 its contacts as recipients.
+
+### Autocompletion
+
+The suggestions show the job position of the contacts under their address
+(Elastic skin), and typing a job position suggests the matching contacts.
+Add `'organization'` to `odoo_autocomplete_details` to show the company too, and
+`'commercial_company_name'` to `odoo_autocomplete_search` to find the contacts of
+a company from its name.
+
+The job position is the *Job Position* of the contact or, for employees, the
+*Job Title* of their employee form, which Odoo does not copy to their contact.
 
 ### Performance
 

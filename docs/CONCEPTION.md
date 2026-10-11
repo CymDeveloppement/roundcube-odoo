@@ -74,8 +74,19 @@ Les groupes ne sont pas proposés à l'autocomplétion (un clic ajouterait tout 
 | `address:work` | `street`, `street2`, `zip`, `city`, `state_id`, `country_id` |
 | `website:work`, `notes` | `website`, `comment` (HTML → texte) |
 
-Recherche rapide (`*`) : `name`, `email`, `commercial_company_name` en `ilike` ;
-modes strict / préfixe de Roundcube en `=ilike`.
+Recherche rapide (`*`) : `name`, `email`, `commercial_company_name`, `function` en
+`ilike` ; modes strict / préfixe de Roundcube en `=ilike`.
+
+Autocomplétion : les champs Odoo de `odoo_autocomplete_search` (`name`, `email`,
+`function`) au lieu de `contactlist_fields`. Le hook `contacts_autocomplete_after`
+ajoute un champ `details` (poste, société : `odoo_autocomplete_details`) aux
+suggestions ; Elastic l'affiche sur une 3e ligne (`skins/elastic/roundcube_odoo.css`).
+L'insertion utilise le nom du contact, pas ces champs.
+
+Poste des employés : le `job_title` de `hr.employee.public` n'est pas recopié sur
+le contact (`function` vide). Il est lu avec la liste des employés (type `employee`),
+affiché quand `function` est vide, et la recherche sur `function` ajoute les
+employés dont le poste correspond (`id in`).
 
 ## 6. Performance et robustesse
 

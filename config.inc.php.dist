@@ -43,6 +43,14 @@ $config['odoo_domain'] = [];
 // Suggest the contacts in the recipient autocompletion
 $config['odoo_autocomplete'] = true;
 
+// Odoo fields searched by the autocompletion. Add 'commercial_company_name'
+// to suggest the contacts of a company from its name.
+$config['odoo_autocomplete_search'] = ['name', 'email', 'function'];
+
+// Details shown under the suggestions (Elastic skin): 'jobtitle' (job
+// position) and/or 'organization' (company)
+$config['odoo_autocomplete_details'] = ['jobtitle'];
+
 // --------------- Performance ------------------
 // Cache of the Odoo results, shared by all users: 'db', 'apc', 'memcache',
 // 'redis' or null to disable it

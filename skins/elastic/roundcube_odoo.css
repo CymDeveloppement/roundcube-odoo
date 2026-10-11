@@ -1,0 +1,5 @@
+/* Details of the Odoo contacts (job position, company) in the suggestions */
+#rcmKSearchpane > ul > li > span.fields > span.field.details {
+    font-size: .875rem;
+    opacity: .7;
+}
