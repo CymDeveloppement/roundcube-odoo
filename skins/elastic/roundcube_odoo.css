@@ -3,3 +3,20 @@
     font-size: .875rem;
     opacity: .7;
 }
+
+/* Employees: building icon, or the logo of their company */
+#rcmKSearchpane > ul > li.odoo-employee > i:before {
+    content: "\f1ad";
+}
+
+#rcmKSearchpane > ul > li > i.odoo-logo {
+    flex: 0 0 auto;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-left: .5rem;
+    background: no-repeat center / contain;
+}
+
+#rcmKSearchpane > ul > li > i.odoo-logo:before {
+    content: none;
+}

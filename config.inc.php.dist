@@ -51,6 +51,17 @@ $config['odoo_autocomplete_search'] = ['name', 'email', 'function'];
 // position) and/or 'organization' (company)
 $config['odoo_autocomplete_details'] = ['jobtitle'];
 
+// Logo of the employees in the suggestions (Elastic skin), instead of the
+// building icon:
+//   'odoo'  logo of their company in Odoo (icon if it is the default logo)
+//   a file  path of an image, absolute or relative to the plugin folder
+//   a URL   'https://...'
+//   null    building icon
+// or one per company, by id or name, '*' for the others:
+//   ['Cym Filiale' => 'logos/filiale.png', 1 => 'odoo', '*' => null]
+// Small square images look best (shown at 24 px).
+$config['odoo_employee_logo'] = 'odoo';
+
 // --------------- Performance ------------------
 // Cache of the Odoo results, shared by all users: 'db', 'apc', 'memcache',
 // 'redis' or null to disable it

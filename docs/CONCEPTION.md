@@ -83,6 +83,17 @@ ajoute un champ `details` (poste, société : `odoo_autocomplete_details`) aux
 suggestions ; Elastic l'affiche sur une 3e ligne (`skins/elastic/roundcube_odoo.css`).
 L'insertion utilise le nom du contact, pas ces champs.
 
+Employés : le hook met `type = 'odoo-employee'` (classe de la suggestion → icône
+bâtiment en CSS) et `odoo_logo` (URL) sur la suggestion, pas dans `fields` : sans le
+script du plugin (autocomplétion d'un autre plugin), rien ne casse.
+`roundcube_odoo.js` enveloppe `ksearch_query_results` et met le logo en fond de
+l'icône de `#rcmkSearchItem<i>` (= `env.contacts[i]`). `odoo_employee_logo` :
+`'odoo'` (logo de la société de l'employé, `res.company.logo_web`, ignoré si
+`uses_default_logo`), fichier, URL, ou tableau par id / nom de société + `'*'`.
+Les fichiers et logos Odoo passent par l'action `plugin.odoo-logo` (session requise,
+cache 1 jour, CSP stricte pour les SVG). Sans contexte `allowed_company_ids`, l'API
+voit toutes les sociétés de l'utilisateur technique.
+
 Poste des employés : le `job_title` de `hr.employee.public` n'est pas recopié sur
 le contact (`function` vide). Il est lu avec la liste des employés (type `employee`),
 affiché quand `function` est vide, et la recherche sur `function` ajoute les

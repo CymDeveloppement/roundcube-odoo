@@ -5,6 +5,7 @@ Read-only address book of the [Odoo](https://www.odoo.com) contacts for
 
 - the contacts are suggested in the **To / Cc / Bcc autocompletion**, with
   their job position, and can be found from it (e.g. "project manager");
+  the employees are marked by the logo of their company;
 - an **Odoo** address book lists them in the Contacts screen, with a group for
   each contact type (customers, suppliers, employees...), and shows their
   details (email, phone, company, job position, address, notes).
@@ -61,6 +62,7 @@ $config['odoo_types'] = ['customer', 'supplier', 'employee'];
 | `odoo_autocomplete` | `true` | Suggest the contacts in the autocompletion |
 | `odoo_autocomplete_search` | name, email, function | Odoo fields searched by the autocompletion |
 | `odoo_autocomplete_details` | `['jobtitle']` | Details under the suggestions: `jobtitle`, `organization` |
+| `odoo_employee_logo` | `'odoo'` | Logo of the employees in the suggestions, see below |
 | `odoo_cache` / `odoo_cache_ttl` | `'db'` / `'5m'` | Cache shared by all users |
 | `odoo_connect_timeout` / `odoo_timeout` | `2` / `4` | Seconds |
 
@@ -100,6 +102,32 @@ a company from its name.
 
 The job position is the *Job Position* of the contact or, for employees, the
 *Job Title* of their employee form, which Odoo does not copy to their contact.
+
+### Employees
+
+The employees (`employee` type) are internal to the organization: their
+suggestions show a building icon instead of the person icon, or a logo:
+
+```php
+// Logo of their company in Odoo (default), building icon for the companies
+// still using the default Odoo logo
+$config['odoo_employee_logo'] = 'odoo';
+
+// An image: path (absolute or relative to the plugin folder) or URL
+$config['odoo_employee_logo'] = 'logos/company.png';
+
+// One per company, by Odoo id or name, '*' for the others
+$config['odoo_employee_logo'] = [
+    'Cym Filiale' => 'logos/filiale.png',
+    1 => 'odoo',
+    '*' => null,  // building icon
+];
+```
+
+The logos are shown at 24 px: small square images look best, wide company
+logos are scaled down. Files are served by Roundcube to logged-in users only,
+they can be kept out of the web root. With several companies, the technical
+user must belong to all of them.
 
 ### Performance
 

@@ -67,7 +67,7 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     /** @var array Records read during the request, by id */
     private $records = array();
 
-    /** @var ?array Job positions of the employees, by work contact id */
+    /** @var ?array Employees by work contact id: ['job' => job position, 'company' => [id, name] or false] */
     private $employees;
 
     /**
@@ -326,7 +326,15 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     }
 
     /**
-     * Job positions of the employees, by work contact id. Empty without the
+     * Employee of a work contact, see $employees, null if not an employee
+     */
+    public function employee($id)
+    {
+        return $this->employees()[$id] ?? null;
+    }
+
+    /**
+     * Employees by work contact id, see $employees. Empty without the
      * 'employee' type, the Employees app may not be installed.
      */
     private function employees()
@@ -343,11 +351,14 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             // position is not copied to their work contact.
             $rows = $this->query('hr.employee.public', 'search_read', array(
                 'domain' => array(array('work_contact_id', '!=', false)),
-                'fields' => array('work_contact_id', 'job_title'),
+                'fields' => array('work_contact_id', 'job_title', 'company_id'),
             ), array());
 
             foreach ($rows as $row) {
-                $this->employees[$row['work_contact_id'][0]] = (string) $row['job_title'];
+                $this->employees[$row['work_contact_id'][0]] = array(
+                    'job' => (string) $row['job_title'],
+                    'company' => $row['company_id'],
+                );
             }
         }
 
@@ -406,7 +417,8 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     private function employees_by_job($value, $mode)
     {
         $ids = array();
-        foreach ($this->employees() as $id => $job) {
+        foreach ($this->employees() as $id => $employee) {
+            $job = $employee['job'];
             $pos = $job === '' ? false : mb_stripos($job, $value);
             if ($mode == self::SEARCH_STRICT ? mb_strtolower($job) === mb_strtolower($value)
                 : ($mode == self::SEARCH_PREFIX ? $pos === 0 : $pos !== false)
@@ -484,8 +496,8 @@ class roundcube_odoo_addressbook extends rcube_addressbook
         }
         if ($row['function']) {
             $record['jobtitle'] = $row['function'];
-        } else if (!empty($this->employees()[$row['id']])) {
-            $record['jobtitle'] = $this->employees()[$row['id']];
+        } else if (!empty($this->employees()[$row['id']]['job'])) {
+            $record['jobtitle'] = $this->employees()[$row['id']]['job'];
         }
         if ($row['phone']) {
             $record['phone:work'] = array($row['phone']);

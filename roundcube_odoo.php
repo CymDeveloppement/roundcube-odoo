@@ -36,6 +36,12 @@ class roundcube_odoo extends rcube_plugin
     /** @var ?roundcube_odoo_addressbook */
     private $abook;
 
+    /** @var ?roundcube_odoo_client */
+    private $client;
+
+    /** @var ?array Companies of Odoo: id => ['name' => name, 'logo' => true if not the default logo] */
+    private $companies;
+
     function init()
     {
         $this->rc = rcmail::get_instance();
@@ -58,9 +64,13 @@ class roundcube_odoo extends rcube_plugin
 
             $this->add_hook('contacts_autocomplete_after', array($this, 'contacts_autocomplete_after'));
 
-            $stylesheet = $this->local_skin_path() . '/roundcube_odoo.css';
-            if ($this->rc->task == 'mail' && is_file($this->home . '/' . $stylesheet)) {
-                $this->include_stylesheet($stylesheet);
+            if ($this->rc->task == 'mail') {
+                $stylesheet = $this->local_skin_path() . '/roundcube_odoo.css';
+                if (is_file($this->home . '/' . $stylesheet)) {
+                    $this->include_stylesheet($stylesheet);
+                }
+                $this->include_script('roundcube_odoo.js');
+                $this->register_action('plugin.odoo-logo', array($this, 'logo_action'));
             }
         }
     }
@@ -79,7 +89,8 @@ class roundcube_odoo extends rcube_plugin
 
     /**
      * Adds the details of the Odoo contacts (job position...) to the
-     * suggestions, on a line of their own in Elastic
+     * suggestions, on a line of their own in Elastic, and marks the employees
+     * with their logo (see roundcube_odoo.js)
      */
     function contacts_autocomplete_after($args)
     {
@@ -102,9 +113,139 @@ class roundcube_odoo extends rcube_plugin
             if ($details) {
                 $args['contacts'][$i]['fields']['details'] = implode(' · ', $details);
             }
+
+            if ($employee = $this->abook->employee($contact['id'])) {
+                $args['contacts'][$i]['type'] = 'odoo-employee';
+                if ($logo = $this->logo_url($employee['company'])) {
+                    $args['contacts'][$i]['odoo_logo'] = $logo;
+                }
+            }
         }
 
         return $args;
+    }
+
+    /**
+     * Sends the logo of a company, for the employees in the suggestions
+     */
+    function logo_action()
+    {
+        $id = (int) rcube_utils::get_input_string('_company', rcube_utils::INPUT_GET);
+        $source = $this->logo_source($id);
+        $data = null;
+
+        if ($source === 'odoo') {
+            try {
+                $rows = $this->client()->cached_call('res.company', 'search_read', array(
+                    'domain' => array(array('id', '=', $id)),
+                    'fields' => array('logo_web'),
+                ));
+                $data = $rows && $rows[0]['logo_web'] ? base64_decode($rows[0]['logo_web']) : null;
+            } catch (Exception $e) {
+                rcube::raise_error(array(
+                    'code' => 600, 'file' => __FILE__, 'line' => __LINE__,
+                    'message' => $e->getMessage(),
+                ), true, false);
+            }
+        } else if ($source && !self::is_url($source)) {
+            $path = $source[0] == '/' ? $source : $this->home . '/' . $source;
+            $data = is_file($path) ? file_get_contents($path) : null;
+        }
+
+        if (!$data) {
+            header('HTTP/1.1 404 Not Found');
+            exit;
+        }
+
+        if (preg_match('/^\s*(<\?xml[^>]*>\s*)?<svg/i', $data)) {
+            $type = 'image/svg+xml';
+        } else if (substr($data, 0, 4) == 'RIFF' && substr($data, 8, 4) == 'WEBP') {
+            $type = 'image/webp';
+        } else {
+            $type = rcube_mime::image_content_type($data);
+        }
+
+        header('Content-Type: ' . $type);
+        header('Content-Security-Policy: default-src \'none\'; style-src \'unsafe-inline\'');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, max-age=86400');
+        echo $data;
+        exit;
+    }
+
+    /**
+     * URL of the logo of the employees of a company, null for the icon
+     *
+     * @param array|false $company [id, name] of the company
+     */
+    private function logo_url($company)
+    {
+        $id = $company ? (int) $company[0] : 0;
+        $source = $this->logo_source($id);
+
+        if (!$source) {
+            return null;
+        }
+        if (self::is_url($source)) {
+            return $source;
+        }
+
+        return $this->rc->url(array('_action' => 'plugin.odoo-logo', '_company' => $id));
+    }
+
+    /**
+     * Logo configured for the employees of a company: 'odoo', a file or a
+     * URL, null for the icon
+     */
+    private function logo_source($id)
+    {
+        $config = $this->rc->config->get('odoo_employee_logo');
+
+        if (is_array($config)) {
+            $name = $this->companies()[$id]['name'] ?? null;
+            $source = $config[$id] ?? ($name !== null ? $config[$name] ?? null : null) ?? $config['*'] ?? null;
+        } else {
+            $source = $config;
+        }
+
+        if ($source === 'odoo' && empty($this->companies()[$id]['logo'])) {
+            return null;
+        }
+
+        return $source ?: null;
+    }
+
+    /**
+     * Companies of Odoo, see $companies
+     */
+    private function companies()
+    {
+        if ($this->companies === null) {
+            $this->companies = array();
+
+            try {
+                $rows = $this->client()->cached_call('res.company', 'search_read', array(
+                    'fields' => array('name', 'uses_default_logo'),
+                ));
+            } catch (Exception $e) {
+                $rows = array();
+                rcube::raise_error(array(
+                    'code' => 600, 'file' => __FILE__, 'line' => __LINE__,
+                    'message' => $e->getMessage(),
+                ), true, false);
+            }
+
+            foreach ($rows as $row) {
+                $this->companies[$row['id']] = array('name' => $row['name'], 'logo' => !$row['uses_default_logo']);
+            }
+        }
+
+        return $this->companies;
+    }
+
+    private static function is_url($source)
+    {
+        return (bool) preg_match('#^https?://#i', $source);
     }
 
     function addressbook_get($args)
@@ -116,11 +257,11 @@ class roundcube_odoo extends rcube_plugin
         return $args;
     }
 
-    private function addressbook()
+    private function client()
     {
-        if (!$this->abook) {
+        if (!$this->client) {
             $config = $this->rc->config;
-            $client = new roundcube_odoo_client(array(
+            $this->client = new roundcube_odoo_client(array(
                 'url' => $config->get('odoo_url'),
                 'db' => $config->get('odoo_db'),
                 'login' => $config->get('odoo_login'),
@@ -130,9 +271,17 @@ class roundcube_odoo extends rcube_plugin
                 'connect_timeout' => $config->get('odoo_connect_timeout'),
                 'timeout' => $config->get('odoo_timeout'),
             )), $this->rc->get_cache_shared('odoo'));
+        }
 
+        return $this->client;
+    }
+
+    private function addressbook()
+    {
+        if (!$this->abook) {
+            $config = $this->rc->config;
             $this->abook = new roundcube_odoo_addressbook(
-                $client,
+                $this->client(),
                 $config->get('odoo_addressbook_name'),
                 $this->types(),
                 (array) $config->get('odoo_domain')
