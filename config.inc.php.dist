@@ -1,0 +1,59 @@
+<?php
+
+$config = array();
+
+// --------------- Odoo server ------------------
+// Base URL of the Odoo server, e.g. 'https://erp.example.com'.
+// The plugin is disabled while the URL, database, login or key is empty.
+$config['odoo_url'] = '';
+
+// Database name
+$config['odoo_db'] = '';
+
+// Login and API key of the technical Odoo user used to read the contacts
+// (Odoo: My Profile > Account Security > New API Key). It must be an
+// internal user; the contacts are those this user can read.
+$config['odoo_login'] = '';
+$config['odoo_api_key'] = '';
+
+// API: 'auto' (JSON-2 on Odoo 19 and later, JSON-RPC before), 'json2'
+// (Odoo 19 and later) or 'jsonrpc' (Odoo 18 and 19, removed in Odoo 22)
+$config['odoo_api'] = 'auto';
+
+// --------------- Address book ------------------
+// Name of the address book in the Contacts screen
+$config['odoo_addressbook_name'] = 'Odoo';
+
+// Types of the listed contacts. A contact is listed when it matches one of
+// them, and each type is a group of the address book. Empty: all the
+// contacts, without groups. Contacts without email are never listed.
+// Built-in types:
+//   'customer'  customers and their contacts (needs the Invoicing app)
+//   'supplier'  suppliers and their contacts (needs the Invoicing app)
+//   'employee'  work contacts of the employees (needs the Employees app)
+//   'company'   companies
+//   'person'    individuals
+// Custom types: key => ['name' => group name, 'domain' => Odoo domain], e.g.
+//   'vip' => ['name' => 'VIP', 'domain' => [['category_id.name', '=', 'VIP']]]
+$config['odoo_types'] = ['customer', 'supplier', 'employee'];
+
+// Extra domain filtering all the contacts, e.g. [['company_id', 'in', [1, false]]]
+$config['odoo_domain'] = [];
+
+// Suggest the contacts in the recipient autocompletion
+$config['odoo_autocomplete'] = true;
+
+// Minimum number of characters of a search sent to Odoo
+$config['odoo_min_length'] = 3;
+
+// --------------- Performance ------------------
+// Cache of the Odoo results, shared by all users: 'db', 'apc', 'memcache',
+// 'redis' or null to disable it
+$config['odoo_cache'] = 'db';
+
+// Lifetime of the cached results: a change in Odoo appears after this delay
+$config['odoo_cache_ttl'] = '5m';
+
+// HTTP timeouts, in seconds: a slow Odoo must not block the typing
+$config['odoo_connect_timeout'] = 2;
+$config['odoo_timeout'] = 4;
