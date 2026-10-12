@@ -61,7 +61,7 @@ $config['odoo_types'] = ['customer', 'supplier', 'employee'];
 | `odoo_domain` | `[]` | Extra Odoo domain applied to all the contacts |
 | `odoo_autocomplete` | `true` | Suggest the contacts in the autocompletion |
 | `odoo_autocomplete_search` | name, email, function | Odoo fields searched by the autocompletion |
-| `odoo_autocomplete_details` | `['jobtitle']` | Details under the suggestions: `jobtitle`, `organization` |
+| `odoo_autocomplete_details` | `'{function\|employee.job_title}'` | Details under the suggestions, see below |
 | `odoo_employee_logo` | `'odoo'` | Logo of the employees in the suggestions, see below |
 | `odoo_cache` / `odoo_cache_ttl` | `'db'` / `'5m'` | Cache shared by all users |
 | `odoo_connect_timeout` / `odoo_timeout` | `2` / `4` | Seconds |
@@ -96,12 +96,29 @@ its contacts as recipients.
 
 The suggestions show the job position of the contacts under their address
 (Elastic skin), and typing a job position suggests the matching contacts.
-Add `'organization'` to `odoo_autocomplete_details` to show the company too, and
-`'commercial_company_name'` to `odoo_autocomplete_search` to find the contacts of
-a company from its name.
+Add `'commercial_company_name'` to `odoo_autocomplete_search` to find the
+contacts of a company from its name.
 
-The job position is the *Job Position* of the contact or, for employees, the
-*Job Title* of their employee form, which Odoo does not copy to their contact.
+The line under the address is a template of Odoo fields:
+
+```php
+$config['odoo_autocomplete_details'] = '{function|employee.job_title} - {employee.work_location_id}';
+```
+
+| Placeholder | Value |
+|---|---|
+| `{field}` | Field of the contact (`res.partner`): `{function}`, `{commercial_company_name}`, `{city}`, `{phone}`... |
+| `{employee.field}` | Field of the employee (`hr.employee.public`, needs the `employee` type): `{employee.job_title}`, `{employee.work_location_id}`, `{employee.department_id}`, `{employee.parent_id}` (manager)... |
+| `{a\|b}` | The first one not empty |
+
+Relational fields show their name. The text between two placeholders is
+dropped when one of them is empty: "Chef de projet - Lyon", or "Chef de projet"
+without work location. Unknown fields are ignored and logged.
+
+The job position is the *Job Position* of the contact (`function`) or, for
+employees, the *Job Title* of their employee form (`employee.job_title`), which
+Odoo does not copy to their contact: hence the default
+`{function|employee.job_title}`.
 
 ### Employees
 

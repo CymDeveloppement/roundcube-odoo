@@ -79,8 +79,13 @@ Recherche rapide (`*`) : `name`, `email`, `commercial_company_name`, `function` 
 
 Autocomplétion : les champs Odoo de `odoo_autocomplete_search` (`name`, `email`,
 `function`) au lieu de `contactlist_fields`. Le hook `contacts_autocomplete_after`
-ajoute un champ `details` (poste, société : `odoo_autocomplete_details`) aux
-suggestions ; Elastic l'affiche sur une 3e ligne (`skins/elastic/roundcube_odoo.css`).
+ajoute un champ `details` aux suggestions ; Elastic l'affiche sur une 3e ligne
+(`skins/elastic/roundcube_odoo.css`). `odoo_autocomplete_details` est un modèle :
+`{champ}` (res.partner), `{employee.champ}` (hr.employee.public), `{a|b}` (premier
+non vide). Les champs des placeholders sont ajoutés aux lectures (validés par
+`fields_get`, inconnus ignorés et logués) ; many2one → nom ; texte entre deux
+placeholders retiré si l'un est vide. L'ancien format (liste `jobtitle`,
+`organization`) reste accepté.
 L'insertion utilise le nom du contact, pas ces champs.
 
 Employés : le hook met `type = 'odoo-employee'` (classe de la suggestion → icône

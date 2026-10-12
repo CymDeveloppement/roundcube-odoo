@@ -94,7 +94,7 @@ class roundcube_odoo extends rcube_plugin
      */
     function contacts_autocomplete_after($args)
     {
-        $keys = (array) $this->rc->config->get('odoo_autocomplete_details');
+        $template = $this->rc->config->get('odoo_autocomplete_details');
 
         foreach ($args['contacts'] as $i => $contact) {
             if (($contact['source'] ?? null) !== self::SOURCE || !$this->abook
@@ -103,18 +103,26 @@ class roundcube_odoo extends rcube_plugin
                 continue;
             }
 
-            $details = array();
-            foreach ($keys as $key) {
-                if (!empty($record[$key]) && is_string($record[$key])) {
-                    $details[] = $record[$key];
+            $employee = $this->abook->employee($contact['id']);
+
+            if (is_string($template)) {
+                $details = self::render_details($template, $this->abook->known_row($contact['id']), $employee ? $employee['row'] : array());
+            } else {
+                // Before 1.2: list of Roundcube fields
+                $details = array();
+                foreach ((array) $template as $key) {
+                    if (!empty($record[$key]) && is_string($record[$key])) {
+                        $details[] = $record[$key];
+                    }
                 }
+                $details = implode(' · ', $details);
             }
 
-            if ($details) {
-                $args['contacts'][$i]['fields']['details'] = implode(' · ', $details);
+            if ($details !== '') {
+                $args['contacts'][$i]['fields']['details'] = $details;
             }
 
-            if ($employee = $this->abook->employee($contact['id'])) {
+            if ($employee) {
                 $args['contacts'][$i]['type'] = 'odoo-employee';
                 if ($logo = $this->logo_url($employee['company'])) {
                     $args['contacts'][$i]['odoo_logo'] = $logo;
@@ -243,6 +251,90 @@ class roundcube_odoo extends rcube_plugin
         return $this->companies;
     }
 
+    /**
+     * Odoo fields of the placeholders of a details template, by model:
+     * ['res.partner' => [...], 'hr.employee.public' => [...]]
+     */
+    private static function template_fields($template)
+    {
+        $fields = array('res.partner' => array(), 'hr.employee.public' => array());
+
+        preg_match_all('/\{([^{}]+)\}/', $template, $matches);
+        foreach ($matches[1] as $placeholder) {
+            foreach (explode('|', $placeholder) as $name) {
+                $name = trim($name);
+                if (strpos($name, 'employee.') === 0) {
+                    $fields['hr.employee.public'][] = substr($name, 9);
+                } else if ($name !== '') {
+                    $fields['res.partner'][] = $name;
+                }
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Fills a details template, e.g. '{function|employee.job_title} - {employee.work_location_id}'.
+     * {field} is a field of the contact, {employee.field} a field of the
+     * employee, {a|b} the first one not empty. The text between two
+     * placeholders is dropped when one of them is empty.
+     */
+    private static function render_details($template, $row, array $employee)
+    {
+        // [text, placeholder, text, placeholder, ..., text]
+        $parts = preg_split('/\{([^{}]+)\}/', $template, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $last = count($parts) - 2;
+        $result = '';
+        $found = false;
+
+        for ($i = 1; $i <= $last; $i += 2) {
+            $value = '';
+            foreach (explode('|', $parts[$i]) as $name) {
+                $name = trim($name);
+                $value = strpos($name, 'employee.') === 0
+                    ? self::field_text($employee[substr($name, 9)] ?? null)
+                    : self::field_text(((array) $row)[$name] ?? null);
+                if ($value !== '') {
+                    break;
+                }
+            }
+
+            if ($value === '') {
+                continue;
+            }
+
+            // Text before the first placeholder and between two values
+            if ($found || $i == 1) {
+                $result .= $parts[$i - 1];
+            }
+            $result .= $value;
+            $found = true;
+
+            // Text after the last placeholder
+            if ($i == $last) {
+                $result .= $parts[$i + 1];
+            }
+        }
+
+        return trim($result);
+    }
+
+    /**
+     * Text of an Odoo value: name of a many2one, empty for false and lists
+     */
+    private static function field_text($value)
+    {
+        if (is_array($value)) {
+            return count($value) == 2 && is_int($value[0]) && is_string($value[1]) ? $value[1] : '';
+        }
+        if ($value === null || is_bool($value)) {
+            return '';
+        }
+
+        return trim(strip_tags((string) $value));
+    }
+
     private static function is_url($source)
     {
         return (bool) preg_match('#^https?://#i', $source);
@@ -287,8 +379,14 @@ class roundcube_odoo extends rcube_plugin
                 (array) $config->get('odoo_domain')
             );
 
-            if ($this->rc->action == 'autocomplete' && ($fields = (array) $config->get('odoo_autocomplete_search'))) {
-                $this->abook->set_autocomplete_fields($fields);
+            if ($this->rc->action == 'autocomplete') {
+                if ($fields = (array) $config->get('odoo_autocomplete_search')) {
+                    $this->abook->set_autocomplete_fields($fields);
+                }
+                if (is_string($template = $config->get('odoo_autocomplete_details'))) {
+                    $fields = self::template_fields($template);
+                    $this->abook->set_extra_fields($fields['res.partner'], $fields['hr.employee.public']);
+                }
             }
         }
 

@@ -67,8 +67,14 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     /** @var array Records read during the request, by id */
     private $records = array();
 
-    /** @var ?array Employees by work contact id: ['job' => job position, 'company' => [id, name] or false] */
+    /** @var array Odoo rows of these records, by id */
+    private $rows = array();
+
+    /** @var ?array Employees by work contact id: ['job' => job position, 'company' => [id, name] or false, 'row' => Odoo row] */
     private $employees;
+
+    /** @var array Extra Odoo fields read, by model */
+    private $extra_fields = array('res.partner' => array(), 'hr.employee.public' => array());
 
     /**
      * @param roundcube_odoo_client $client
@@ -96,11 +102,48 @@ class roundcube_odoo_addressbook extends rcube_addressbook
     }
 
     /**
+     * Reads extra Odoo fields of the contacts (res.partner) and employees
+     * (hr.employee.public). Unknown fields are ignored and logged.
+     */
+    public function set_extra_fields(array $partner_fields, array $employee_fields)
+    {
+        foreach (array('res.partner' => $partner_fields, 'hr.employee.public' => $employee_fields) as $model => $names) {
+            if (!$names || ($model == 'hr.employee.public' && !$this->has_employees())) {
+                continue;
+            }
+
+            $known = $this->query($model, 'fields_get', array('attributes' => array('type')), array());
+            if (!$known) {
+                continue;
+            }
+
+            foreach (array_unique($names) as $name) {
+                if (isset($known[$name])) {
+                    $this->extra_fields[$model][] = $name;
+                } else {
+                    rcube::raise_error(array(
+                        'code' => 600, 'file' => __FILE__, 'line' => __LINE__,
+                        'message' => "roundcube_odoo: unknown field $model.$name",
+                    ), true, false);
+                }
+            }
+        }
+    }
+
+    /**
      * Record already read during the request, null if unknown
      */
     public function known_record($id)
     {
         return $this->records[$id] ?? null;
+    }
+
+    /**
+     * Odoo row (res.partner) of a record read during the request
+     */
+    public function known_row($id)
+    {
+        return $this->rows[$id] ?? null;
     }
 
     #[\Override]
@@ -342,7 +385,7 @@ class roundcube_odoo_addressbook extends rcube_addressbook
         if ($this->employees === null) {
             $this->employees = array();
 
-            if (!in_array(true, array_column($this->types, 'employee'))) {
+            if (!$this->has_employees()) {
                 return $this->employees;
             }
 
@@ -351,18 +394,30 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             // position is not copied to their work contact.
             $rows = $this->query('hr.employee.public', 'search_read', array(
                 'domain' => array(array('work_contact_id', '!=', false)),
-                'fields' => array('work_contact_id', 'job_title', 'company_id'),
+                'fields' => array_values(array_unique(array_merge(
+                    array('work_contact_id', 'job_title', 'company_id'),
+                    $this->extra_fields['hr.employee.public']
+                ))),
             ), array());
 
             foreach ($rows as $row) {
                 $this->employees[$row['work_contact_id'][0]] = array(
                     'job' => (string) $row['job_title'],
                     'company' => $row['company_id'],
+                    'row' => $row,
                 );
             }
         }
 
         return $this->employees;
+    }
+
+    /**
+     * True if the employees are listed ('employee' type)
+     */
+    private function has_employees()
+    {
+        return in_array(true, array_column($this->types, 'employee'));
     }
 
     /**
@@ -457,7 +512,7 @@ class roundcube_odoo_addressbook extends rcube_addressbook
             $fields[] = 'mobile';
         }
 
-        return $fields;
+        return array_values(array_unique(array_merge($fields, $this->extra_fields['res.partner'])));
     }
 
     /**
@@ -524,6 +579,8 @@ class roundcube_odoo_addressbook extends rcube_addressbook
                 $record['notes'] = $notes;
             }
         }
+
+        $this->rows[$row['id']] = $row;
 
         return $this->records[$record['ID']] = $record;
     }

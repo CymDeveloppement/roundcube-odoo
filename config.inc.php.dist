@@ -47,9 +47,16 @@ $config['odoo_autocomplete'] = true;
 // to suggest the contacts of a company from its name.
 $config['odoo_autocomplete_search'] = ['name', 'email', 'function'];
 
-// Details shown under the suggestions (Elastic skin): 'jobtitle' (job
-// position) and/or 'organization' (company)
-$config['odoo_autocomplete_details'] = ['jobtitle'];
+// Details shown under the suggestions (Elastic skin), with Odoo fields:
+//   {field}           field of the contact (res.partner), e.g. {function},
+//                     {commercial_company_name}, {city}
+//   {employee.field}  field of the employee (hr.employee.public, needs the
+//                     'employee' type), e.g. {employee.job_title},
+//                     {employee.work_location_id}, {employee.department_id}
+//   {a|b}             first one not empty
+// The text between two placeholders is dropped when one is empty. Example:
+//   '{function|employee.job_title} - {employee.work_location_id}'
+$config['odoo_autocomplete_details'] = '{function|employee.job_title}';
 
 // Logo of the employees in the suggestions (Elastic skin), instead of the
 // building icon:
