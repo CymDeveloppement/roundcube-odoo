@@ -120,6 +120,25 @@ employees, the *Job Title* of their employee form (`employee.job_title`), which
 Odoo does not copy to their contact: hence the default
 `{function|employee.job_title}`.
 
+#### Field names
+
+The placeholders use the technical names of the Odoo fields, not their labels:
+`function` is the *Job Position* field of a contact. To find the name of a
+field, enable the developer mode in Odoo (*Settings > Activate the developer
+mode*, or `?debug=1` in the URL) and hover the label of the field on a contact
+or employee form: the tooltip shows `Field: function`.
+
+| Odoo label | Placeholder |
+|---|---|
+| Job Position (contact) | `{function}` |
+| Company (contact) | `{commercial_company_name}` |
+| City | `{city}` |
+| Phone | `{phone}` |
+| Job Title (employee) | `{employee.job_title}` |
+| Work Location | `{employee.work_location_id}` |
+| Department | `{employee.department_id}` |
+| Manager | `{employee.parent_id}` |
+
 ### Employees
 
 The employees (`employee` type) are internal to the organization: their
